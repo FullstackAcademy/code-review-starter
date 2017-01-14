@@ -2,7 +2,7 @@
 
 First of all, this is all hacky as hell (HaH). Use at your own risk.
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/gp89_G8N1EI" frameborder="0" allowfullscreen></iframe>
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/gp89_G8N1EI/0.jpg)](https://www.youtube.com/watch?v=gp89_G8N1EI)
 
 If you clone this repo, you can run
 
