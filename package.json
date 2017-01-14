@@ -1,0 +1,25 @@
+{
+  "name": "code-review-starter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --harmony index"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird": "^3.4.6",
+    "child-process-promise": "^2.2.0",
+    "cli-table": "^0.3.1",
+    "clipboardy": "^0.1.2",
+    "eslint-config-fullstack": "^2.6.0",
+    "lodash": "^4.17.4",
+    "node-notifier": "^4.6.1",
+    "nodegit": "^0.16.0",
+    "sequelize-erd": "^1.0.6",
+    "svg-to-png": "^3.1.2"
+  }
+}

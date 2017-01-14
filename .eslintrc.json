@@ -1,0 +1,13 @@
+{
+  "extends": "fullstack",
+  "rules": {
+    "camelcase": 0,
+    "comma-dangle": 0,
+    "eol-last": 0,
+    "no-irregular-whitespace": 0,
+    "no-console": 1,
+    "no-trailing-spaces": 0,
+    "comma-spacing": 0,
+    "no-unused-vars": ["error", { "vars": "all", "args": "after-used" }]
+  }
+}
