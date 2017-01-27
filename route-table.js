@@ -78,13 +78,6 @@ module.exports = (path, filename) => {
 
     return text.join('\n');
 
-    fs.writeFile(filename, text.join('\n'), (err) => {
-        /* istanbul ignore if */
-        if (err) {
-            console.error(`Failed to print routes to ${ filename }`)
-        } else {
-            console.log(`Printed routes to ${ filename }`)
-        }
-    })
+
 
 }

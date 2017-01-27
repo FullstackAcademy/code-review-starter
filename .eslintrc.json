@@ -1,11 +1,19 @@
 {
   "extends": "fullstack",
+  "parserOptions": {
+    "ecmaVersion": 2017,
+    "ecmaFeatures": {
+      "experimentalObjectRestSpread": true
+    }
+  },
   "rules": {
     "camelcase": 0,
     "comma-dangle": 0,
     "eol-last": 0,
     "no-irregular-whitespace": 0,
-    "no-console": 1,
+    "no-console": ["error", { "allow": ["warn", "error"] }],
+    "no-debugger": 2,
+    "no-alert": 2,
     "no-trailing-spaces": 0,
     "comma-spacing": 0,
     "no-unused-vars": ["error", { "vars": "all", "args": "after-used" }]

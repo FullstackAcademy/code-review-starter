@@ -2,7 +2,7 @@ const NodeGit = require('nodegit');
 
 const Promise = require('bluebird');
 const routeTable = require('./route-table')
-const fs = Promise.promisifyAll(require("fs"));
+const fs = Promise.promisifyAll(require('fs'));
 const { join } = require('path');
 const { exec } = require('child-process-promise');
 const basePath = process.cwd() + '/.tmp';
@@ -12,18 +12,21 @@ const { generateGraph } = require('./barChart');
 const { lint } = require('./linter');
 const notifier = require('node-notifier');
 const clipboardy = require('clipboardy');
-const svgToPng = require('svg-to-png')
+const svgToPng = require('svg-to-png');
+const npmChecker = require('./npm-check');
 
 const formatLintMessage = message => {
-  if(message.severity === 2) {
-    return '**' + message.message + '**'
-  }
+  // if(message.severity === 2) {
+  //   return '**' + message.message + '**'
+  // }
   return message.message
 }
 
 const lintMessage = (repoUrl, path, commit, linterOutput) =>
-  linterOutput.messages.map(message =>
-    `    - [ ] [${message.line}](${repoUrl}/tree/${commit}/${path}#L${message.line}): ${formatLintMessage(message)}`
+  linterOutput.messages
+    .filter(message => message.severity > 1)
+    .map(message =>
+    `  [ ] [${message.line}](${repoUrl}/tree/${commit}/${path}#L${message.line}): ${formatLintMessage(message)}`
   )
   .join('\n')
 
@@ -34,26 +37,14 @@ const makeFileLink = (repoUrl, path, commit, localRepoPath) => {
   const lintResult = lint(fs.readFileSync(fullFilePath, 'utf8'));
   const fileparts = path.split('/');
   const filename = fileparts[fileparts.length-1];
-  return `- [${filename}](${repoUrl}/tree/${commit}/${path})
-  - Linter
+  return `#### [${filename}](${repoUrl}/tree/${commit}/${path})
 ${lintMessage(repoUrl, path, commit, lintResult)}
 
-  - Human Review
 `
 }
 
-const excludeList = [
-  'Jokes.jsx',
-  'Jokes.test.jsx',
-  'auth.js'
-];
 
-const directories = {
-  models: 'db/models',
-  routes: 'server',
-  reducers: 'app/reducers',
-  components: 'app/components'
-}
+
 
 function getAllFiles(dir, fileLists, basePaths) {
   return Object.values(fileLists)
@@ -64,8 +55,16 @@ function getAllFiles(dir, fileLists, basePaths) {
 
 
 async function review(repoUrl) {
-  const directoryFileLists = {};
   const localRepoPath = basePath + '/' + dt;
+  await NodeGit.Clone.clone(repoUrl, localRepoPath);
+  let config;
+  try {
+    config = require(join(localRepoPath, '.code-review-config'));
+  } catch (error) {
+    config = require('./defaultConfig');
+  }
+
+  const directoryFileLists = {};
   const makeFileForRepo = makeFileLink.bind(null, repoUrl);
 
   function printDir(dir, files, commit) {
@@ -74,46 +73,41 @@ async function review(repoUrl) {
 
   function printDirs(dirs, commit) {
     let toReturn = '';
-    for(const type of Object.keys(dirs)) {
+    for (const type of Object.keys(dirs)) {
       toReturn += `### ${type}\n\n`;
-      toReturn += printDir(directories[type], dirs[type], commit) + '\n\n';
+      toReturn += printDir(config.directories[type], dirs[type], commit) + '\n\n';
     }
     return toReturn;
   } 
 
 
+  await exec(`cd ${localRepoPath} && npm install`);
+  const npmCheck = await npmChecker(localRepoPath);
 
-  await NodeGit.Clone.clone(repoUrl, localRepoPath);
-  await exec(`cd ${localRepoPath} && yarn install`);
-  fs.writeFileSync(`${localRepoPath}/ERD.svg`, sequelizeErd(localRepoPath + '/db/index.js'))
+  fs.writeFileSync(`${localRepoPath}/ERD.svg`, sequelizeErd(join(localRepoPath, config.dbInstance)))
   await svgToPng.convert(`${localRepoPath}/ERD.svg`, `${localRepoPath}/ERD.png`, {
     width: '600px'
   })
-  let npmCheck;
-  try {
-    await exec(`cd ${localRepoPath} && npm-check --no-emoji`)
-  } catch(e) {
-    npmCheck = e.stdout
-      .split('\n')
-      .filter(line => line.includes('NOTUSED'))
-      .join('\n');
-  }
+  
   const repo = await NodeGit.Repository.open(localRepoPath);
-  const commit = await repo.getBranchCommit("master");
+  const commit = await repo.getBranchCommit('master');
   const id = commit.id();
 
-  for (key of Object.keys(directories)) {
+  const storePath = join(localRepoPath, config.reduxStore);
+  const reduxJson = await require('./redux-initial-state')(storePath);
+
+  for (const key of Object.keys(config.directories)) {
     try {
-      directoryFileLists[key] = await fs.readdirAsync(join(localRepoPath, directories[key]));
-    } catch(e) {
-      console.warn('cannot find directory', directories[key]);
+      directoryFileLists[key] = await fs.readdirAsync(join(localRepoPath, config.directories[key]));
+    } catch (error) {
+      console.warn('cannot find directory', config.directories[key]);
     }
     directoryFileLists[key] = directoryFileLists[key]
-      .filter(fileName => !excludeList.some(exclude => fileName.includes(exclude)))
+      .filter(fileName => !config.exclude.some(exclude => fileName.includes(exclude)))
   }
   
-  const graph = generateGraph(localRepoPath, getAllFiles(localRepoPath, directoryFileLists, directories));
-
+  const graph = generateGraph(localRepoPath, getAllFiles(localRepoPath, directoryFileLists, config.directories));
+  await exec(`rm -rf ${join(localRepoPath, 'node_modules')}`)
   const message = `# Code Review
 
 ## npm-check
@@ -123,17 +117,18 @@ ${npmCheck}
 
 ## SQL
 
+## redux
+
+\`\`\`
+${reduxJson}
+\`\`\`
+
 ## Files
 
 ${graph}
 
 
 ${printDirs(directoryFileLists, id)}
-
-## Route Tree
-\`\`\`  
-${routeTable(localRepoPath + '/server/start.js')}
-\`\`\`
 `;
 
   clipboardy.writeSync(message);
@@ -146,7 +141,7 @@ ${routeTable(localRepoPath + '/server/start.js')}
 }
 
 
-review(process.argv[2])
+review(process.argv[process.argv.length - 1])
   .catch(err => {
     console.error(err, err.stack)
   })

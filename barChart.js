@@ -7,7 +7,7 @@ const max = arr =>
 const maxLen = strings =>
   max(strings.map(str => str.length));
 
-rightPad = (input, n) =>
+const rightPad = (input, n) =>
   input + " ".repeat(n);
 
 
